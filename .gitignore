@@ -79,3 +79,7 @@ target/
 .DS_Store
 *.err
 *.sub
+
+tags
+tags.lock
+tags.temp
