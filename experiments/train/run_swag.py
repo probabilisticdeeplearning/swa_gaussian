@@ -12,16 +12,16 @@ from swag import data, models, utils, losses
 from swag.posteriors import SWAG
 
 parser = argparse.ArgumentParser(description='SGD/SWA training')
-parser.add_argument('--dir', type=str, default=None, required=True, help='training directory (default: None)')
+parser.add_argument('--dir', type=str, required=True, help='training directory (default: None)')
 
 parser.add_argument('--dataset', type=str, default='CIFAR10', help='dataset name (default: CIFAR10)')
-parser.add_argument('--data_path', type=str, default=None, required=True, metavar='PATH',
+parser.add_argument('--data_path', type=str, required=True, metavar='PATH',
                     help='path to datasets location (default: None)')
 parser.add_argument('--use_test', dest='use_test', action='store_true', help='use test dataset instead of validation (default: False)')
 parser.add_argument('--split_classes', type=int, default=None)
 parser.add_argument('--batch_size', type=int, default=128, metavar='N', help='input batch size (default: 128)')
 parser.add_argument('--num_workers', type=int, default=4, metavar='N', help='number of workers (default: 4)')
-parser.add_argument('--model', type=str, default=None, required=True, metavar='MODEL',
+parser.add_argument('--model', type=str, required=True, metavar='MODEL',
                     help='model name (default: None)')
 
 parser.add_argument('--resume', type=str, default=None, metavar='CKPT',
