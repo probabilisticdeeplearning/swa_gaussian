@@ -63,7 +63,7 @@ with open(os.path.join(args.dir, 'command.sh'), 'w') as f:
     f.write(' '.join(sys.argv))
     f.write('\n')
 
-torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark = False
 torch.manual_seed(args.seed)
 torch.cuda.manual_seed(args.seed)
 
