@@ -44,7 +44,8 @@ def parse_args():
                         help="save frequency (default: 25)")
     parser.add_argument("--eval_freq", type=int, default=5, metavar="N",
                         help="evaluation frequency (default: 5)")
-    parser.add_argument("--learning_rate_init", type=float, default=0.01, metavar="LR",
+    parser.add_argument("--learning_rate_init", type=float, default=0.01,
+                        metavar="LR",
                         help="initial learning rate (default: 0.01)")
     parser.add_argument("--momentum", type=float, default=0.9, metavar="M",
                         help="SGD momentum (default: 0.9)")
@@ -55,7 +56,8 @@ def parse_args():
                         help="swa usage flag (default: off)")
     parser.add_argument("--swa_start", type=float, default=161, metavar="N",
                         help="SWA start epoch number (default: 161)")
-    parser.add_argument("--swa_learning_rate", type=float, default=0.02, metavar="LR",
+    parser.add_argument("--swa_learning_rate", type=float, default=0.02,
+                        metavar="LR",
                         help="SWA LR (default: 0.02)")
     parser.add_argument("--swa_c_epochs", type=int, default=1, metavar="N",
                         help="SWA model collect. freq/cycle length in epochs")
@@ -126,17 +128,28 @@ def init_model(args, model_cfg, num_classes):
 
 
 def update_learning_rate(args, epoch, optimizer):
+    """Update learning rate
+
+    Based on epoch and optimizer
+    """
+
+    learning_rate = float()
     if not args.no_schedule:
         learning_rate = schedule(args, epoch)
         utils.adjust_learning_rate(optimizer, learning_rate)
     else:
         learning_rate = args.learning_rate_init
 
+    return learning_rate
+
 
 def schedule(args, epoch):
     """Scheduler"""
     progress = epoch / (args.swa_start if args.swa else args.epochs)
-    learning_rate_ratio = args.swa_learning_rate / args.learning_rate_init if args.swa else 0.01
+    if args.swa:
+        learning_rate_ratio = args.swa_learning_rate / args.learning_rate_init
+    else:
+        learning_rate_ratio = 0.01
     if progress <= 0.5:
         factor = 1.0
     elif progress <= 0.9:
@@ -187,7 +200,11 @@ def load_checkpoint(args, model, model_cfg, optimizer, num_classes):
 
 
 def display_progress(args, swag_res, values, weird_split):
-    """Print training progress"""
+    """Print training progress
+
+    TODO: Figure out weird split
+    """
+
     columns = ["ep", "learning_rate", "tr_loss", "tr_acc", "te_loss",
                "te_acc", "time", "mem_usage"]
 
@@ -205,6 +222,7 @@ def display_progress(args, swag_res, values, weird_split):
 
 
 def save_model(args, epoch, model, optimizer, swag_model):
+    """Save model to file"""
     utils.save_checkpoint(
         args.dir,
         epoch + 1,
@@ -218,6 +236,50 @@ def save_model(args, epoch, model, optimizer, swag_model):
             name="swag",
             state_dict=swag_model.state_dict(),
         )
+
+
+def calculate_test_scores(args, epoch, loaders, model, criterion):
+    """Test (validation) scores
+
+    Runs first, last and every args.freq'th epoch
+    """
+    test_res = {"loss": None, "accuracy": None}
+    if epoch % args.eval_freq == 0 or epoch == args.epochs - 1:
+        test_res = utils.eval(loaders["test"], model, criterion)
+
+    return test_res
+
+
+def calculate_swag_metrics(args, epoch, loaders, model, criterion,
+                           sgd_targets, sgd_ens_preds,
+                           n_ensembled, swag_model):
+    """Calculate and store swag metrics"""
+
+    swag_res = {"loss": None, "accuracy": None}
+    if args.swa and (epoch + 1) > args.swa_start\
+            and (epoch + 1 - args.swa_start) % args.swa_c_epochs == 0:
+        sgd_res = utils.predict(loaders["test"], model)
+        sgd_preds = sgd_res["predictions"]
+        sgd_targets = sgd_res["targets"]
+        print("updating sgd_ens")
+        if sgd_ens_preds is None:
+            sgd_ens_preds = sgd_preds.copy()
+        else:
+            #TODO: rewrite in a numerically stable way
+            term_1 = sgd_ens_preds * n_ensembled / (n_ensembled + 1)
+            term_2 = sgd_preds / (n_ensembled + 1)
+            sgd_ens_preds = term_1 + term_2
+        n_ensembled += 1
+        swag_model.collect_model(model)
+        if epoch == 0 or epoch % args.eval_freq == args.eval_freq - 1 or\
+                epoch == args.epochs - 1:
+            swag_model.sample(0.0)
+            utils.bn_update(loaders["train"], swag_model)
+            swag_res = utils.eval(loaders["test"], swag_model, criterion)
+        else:
+            swag_res = {"loss": None, "accuracy": None}
+
+    return swag_res, sgd_targets
 
 
 def main():
@@ -264,37 +326,13 @@ def main():
         train_res = utils.train_epoch(loaders["train"],
                                       model, criterion, optimizer)
 
-        if epoch == 0 or epoch % args.eval_freq == args.eval_freq - 1 or\
-                epoch == args.epochs - 1:
-            test_res = utils.eval(loaders["test"], model, criterion)
-        else:
-            test_res = {"loss": None, "accuracy": None}
-
-        if args.swa and (epoch + 1) > args.swa_start\
-                and (epoch + 1 - args.swa_start) % args.swa_c_epochs == 0:
-            sgd_res = utils.predict(loaders["test"], model)
-            sgd_preds = sgd_res["predictions"]
-            sgd_targets = sgd_res["targets"]
-            print("updating sgd_ens")
-            if sgd_ens_preds is None:
-                sgd_ens_preds = sgd_preds.copy()
-            else:
-                #TODO: rewrite in a numerically stable way
-                term_1 = sgd_ens_preds * n_ensembled / (n_ensembled + 1)
-                term_2 = sgd_preds / (n_ensembled + 1)
-                sgd_ens_preds = term_1 + term_2
-            n_ensembled += 1
-            swag_model.collect_model(model)
-            if epoch == 0 or epoch % args.eval_freq == args.eval_freq - 1 or\
-                    epoch == args.epochs - 1:
-                swag_model.sample(0.0)
-                utils.bn_update(loaders["train"], swag_model)
-                swag_res = utils.eval(loaders["test"], swag_model, criterion)
-            else:
-                swag_res = {"loss": None, "accuracy": None}
-        else:
-            swag_res = {"loss": None, "accuracy": None}
-
+        test_res = calculate_test_scores(args, epoch,
+                                         loaders, model, criterion)
+        swag_res, sgd_targets = calculate_swag_metrics(args, epoch, loaders,
+                                                       model, criterion,
+                                                       sgd_targets,
+                                                       sgd_ens_preds,
+                                                       n_ensembled, swag_model)
         if (epoch + 1) % args.save_freq == 0:
             save_model(args, epoch, model, optimizer, swag_model)
 
