@@ -7,3 +7,4 @@ from .wide_resnet_dropout import *
 from .lenet5 import *
 
 from .tiramisu import *
+from .gaussian_likelihood import *
