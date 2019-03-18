@@ -21,7 +21,7 @@ parser.add_argument('--model', type=str, default='VGG16', metavar='MODEL',
 
 parser.add_argument('--swag_rank', type=int, default=20, metavar='R', help='SWAG rank (default: 20)')
 
-parser.add_argument('--checkpoint', action='append')
+parser.add_argument('--checkpoint', default=list(), action='append')
 parser.add_argument('--save_path', type=str, default=None, required=True, help='path to npz results file')
 
 parser.add_argument('--dist', type=float, default=30.0, metavar='D', help='dist to travel along a direction (default: 30.0)')
@@ -32,7 +32,7 @@ parser.add_argument('--seed', type=int, default=1, metavar='S', help='random see
 
 args = parser.parse_args()
 
-torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark = False
 torch.manual_seed(args.seed)
 torch.cuda.manual_seed(args.seed)
 np.random.seed(args.seed)
@@ -68,6 +68,7 @@ criterion = losses.cross_entropy
 
 W = []
 num_checkpoints = len(args.checkpoint)
+
 for path in args.checkpoint:
     print('Loading %s' % path)
     checkpoint = torch.load(path)
@@ -146,4 +147,3 @@ np.savez(
     test_loss=test_loss,
     component_variances=component_variances
 )
-

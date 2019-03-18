@@ -265,7 +265,7 @@ def calculate_swag_metrics(args, epoch, loaders, model, criterion,
         if sgd_ens_preds is None:
             sgd_ens_preds = sgd_preds.copy()
         else:
-            #TODO: rewrite in a numerically stable way
+            # TODO: rewrite in a numerically stable way
             term_1 = sgd_ens_preds * n_ensembled / (n_ensembled + 1)
             term_2 = sgd_preds / (n_ensembled + 1)
             sgd_ens_preds = term_1 + term_2
