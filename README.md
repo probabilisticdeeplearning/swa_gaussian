@@ -55,6 +55,8 @@ Cuda compilation tools, release <local_cuda_version>
 <torch cuda version>
 ```
 
+If the major versions differ. Uninstall torch and get the correct one [here](https://pytorch.org/get-started/locally/)
+
 Unless otherwise described, all experiments were run on a single GPU.
 
 ## File Structure
