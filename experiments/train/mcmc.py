@@ -84,28 +84,16 @@ def prepare_directory(args):
     print("Preparing directory {}".format(args.dir))
     args.dir.mkdir(exist_ok=True)
     with open(os.path.join(args.dir, "command.sh"), "w") as cmd_file:
+        cmd_file.write("python ")
         cmd_file.write(" ".join(sys.argv))
         cmd_file.write("\n")
-
-
-def torch_settings(args):
-    """Pytorch settings"""
-    args.device = None
-    if torch.cuda.is_available():
-        args.device = torch.device("cuda")
-    else:
-        args.device = torch.device("cpu")
-
-    torch.backends.cudnn.benchmark = False
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed(args.seed)
 
 
 def init_model(args, model_cfg, num_classes):
     """Initialize pytorch model"""
 
     print("Preparing model")
-    print(*model_cfg.args)
+    print(model_cfg)
     swag_model = None
     model = model_cfg.base(*model_cfg.args, num_classes=num_classes,
                            **model_cfg.kwargs)
@@ -286,7 +274,7 @@ def main():
     """Main entry point"""
     args = parse_args()
     prepare_directory(args)
-    torch_settings(args)
+    args.device = utils.torch_settings(args.seed)
 
     print("Using model {}".format(args.model))
     model_cfg = getattr(models, args.model)

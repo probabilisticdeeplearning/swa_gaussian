@@ -83,3 +83,7 @@ target/
 tags
 tags.lock
 tags.temp
+
+# Python
+venv
+data

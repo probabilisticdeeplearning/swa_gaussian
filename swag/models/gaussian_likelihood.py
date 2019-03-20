@@ -14,19 +14,29 @@ class GaussianLikelihood(nn.Module):
     by a multivariate gaussian.
     """
 
-    def __init__(self, dim):
+    def __init__(self, dim, device=None):
         super(GaussianLikelihood, self).__init__()
 
-        self.mean = torch.nn.Parameter(torch.zeros(dim, dtype=torch.double))
-        self.cov = torch.tensor(np.eye(dim), dtype=torch.double)
+        self.mean = torch.nn.Parameter(
+            torch.zeros(dim, dtype=torch.double, device=device))
+        self.cov = torch.tensor(np.eye(dim), dtype=torch.double, device=device)
+        self.device = device
 
         self.params = nn.ParameterDict({"mean": self.mean})
+        print(self.params)
         self.dist = MultivariateNormal(self.mean, self.cov)
         self.criterion = torch.nn.L1Loss()
         self.optimizer = torch.optim.SGD(self.parameters(), lr=1e-1)
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer,
                                                          step_size=20,
                                                          gamma=0.2)
+        if self.device:
+            self.to(self.device)
+
+    def set_dist_device(self, device):
+        """Need this fix to move the distributions to GPU"""
+        self.dist.loc = self.dist.loc.to(device)
+        self.dist.covariance_matrix = self.dist.covariance_matrix.to(device)
 
     def status(self, include_learning_rate=True):
         """Format parameter values into a tab separated string"""
@@ -42,6 +52,7 @@ class GaussianLikelihood(nn.Module):
     def train_epoch(self, data_train_loader):
         """Train epoch"""
         for sample in data_train_loader:
+            sample = sample.to(self.device)
             loss = self.neg_log_likelihood(sample)
             self.optimizer.zero_grad()
             loss.backward()
@@ -57,7 +68,8 @@ class GaussianLikelihood(nn.Module):
 
         neg_log_likelihood = self(sample)
         return self.criterion(neg_log_likelihood,
-                              torch.zeros(1, dtype=torch.double))
+                              torch.zeros(1, dtype=torch.double,
+                                          device=self.device))
 
     def update_learning_rate(self, epoch=None):
         """Update learning rate"""

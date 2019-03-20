@@ -252,3 +252,16 @@ def schedule(epoch, lr_init, epochs, swa, swa_start=None, swa_lr=None):
     else:
         factor = lr_ratio
     return lr_init * factor
+
+
+def torch_settings(seed=1, device=None):
+    """Pytorch settings"""
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+
+    torch.backends.cudnn.benchmark = True
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    return device

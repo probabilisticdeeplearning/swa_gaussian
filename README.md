@@ -42,6 +42,19 @@ python setup.py develop
 
 See requirements.txt file for requirements that came from our setup. We use Pytorch 1.0.0 in our experiments.
 
+Note: Make sure that the `pytorch` package installed by the setup script matches the local Cuda version.
+
+```bash
+~ nvcc --version
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2018 NVIDIA Corporation
+Built on Sat_Aug_25_21:08:01_CDT_2018
+Cuda compilation tools, release <local_cuda_version>
+
+~ python -c "import torch; print(torch.version.cuda)"
+<torch cuda version>
+```
+
 Unless otherwise described, all experiments were run on a single GPU.
 
 ## File Structure

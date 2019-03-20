@@ -11,9 +11,9 @@ import torch
 import torch.nn.functional as F
 import torchvision
 
-# from swag import data, models, utils, losses
-from swag import data
-from swag import models
+import swag.data as sw_data
+import swag.models as sw_models
+import swag.utils as sw_utils
 from swag.posteriors import SWAG
 
 
@@ -21,11 +21,14 @@ def main():
     """Main entry point"""
     mean = np.array([2, 2])
     cov = np.diag([1, 1])
-    dataset = data.SyntheticGaussianData(mean=mean, cov=cov, n_samples=1000)
+    dataset = sw_data.SyntheticGaussianData(mean=mean, cov=cov, n_samples=1000)
     data_train_loader = torch.utils.data.DataLoader(dataset,
                                                     batch_size=5,
                                                     shuffle=True)
-    model = models.gaussian_likelihood.GaussianLikelihood(dim=2)
+    device = sw_utils.torch_settings()
+    model = sw_models.gaussian_likelihood.GaussianLikelihood(dim=2,
+                                                             device=device)
+    # model.set_dist_device(device)
 
     num_epochs = 100
     for epoch in range(num_epochs):
