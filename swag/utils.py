@@ -267,6 +267,10 @@ def torch_settings(seed=1, device=None):
     return device
 
 
+def print_tensor(label=None, tensor=None):
+    print("{}: {}".format(label, tensor.data.cpu().numpy()))
+
+
 class SwagSettings:
     """Settings placeholder"""
 

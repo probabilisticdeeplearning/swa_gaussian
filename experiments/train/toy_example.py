@@ -9,16 +9,17 @@ import swag.utils as sw_utils
 
 def main():
     """Main entry point"""
-    dim = 6
-    theta_0 = np.ones(dim, dtype=np.double)
-    cov_theta = 0.5 * np.eye(dim)
+    dim = 2
+    batch_size = 5
+    theta_0 = 0 * np.ones(dim, dtype=np.double)
+    cov_theta = np.eye(dim)
     cov_x = np.eye(dim)
     dataset = sw_data.SyntheticGaussianData(theta_0=theta_0,
                                             cov_theta=cov_theta,
                                             cov_x=cov_x,
-                                            n_samples=1000)
+                                            n_samples=10)
     data_train_loader = torch.utils.data.DataLoader(dataset,
-                                                    batch_size=5,
+                                                    batch_size=batch_size,
                                                     shuffle=True)
     device = sw_utils.torch_settings()
     swag_settings = sw_utils.SwagSettings()

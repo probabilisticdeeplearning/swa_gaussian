@@ -39,12 +39,14 @@ class GaussianLikelihood(nn.Module):
         if self.device:
             self.to(self.device)
 
-    def status(self, include_learning_rate=True):
+    def status(self, show_posterior=True, include_learning_rate=False):
         """Format parameter values into a tab separated string"""
         status = str()
         for key, param in self.params.items():
             val = param.data.cpu().numpy()
             status += "{}: {}\t".format(key, val)
+        if show_posterior:
+            status += "Posterior: {}\t" .format(self.posterior.theta.data.cpu().numpy())
         if include_learning_rate:
             status += "Learning rate: {}\t" .format(
                 self.optimizer.param_groups[0]["lr"])
@@ -58,6 +60,7 @@ class GaussianLikelihood(nn.Module):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+            self.update_true_posterior(sample)
 
     def neg_log_likelihood(self, sample):
         """Custom loss
@@ -101,8 +104,18 @@ class Posterior:
 
     def __init__(self, theta_0, sigma_theta_0, sigma_x):
         self.theta = theta_0
-        # self.sigma_theta_inv = np.linalg.inv(sigma_theta_0)
-        # self.sigma_x_inv = np.linalg.inv(sigma_x)
+        self.sigma_theta = sigma_theta_0
+        self.sigma_x_inv = torch.inverse(sigma_x)
 
     def update(self, sample):
-        self.theta = 0
+        batch_size = sample.size()[0]
+        old_sigma_theta_inv = torch.inverse(self.sigma_theta)
+        new_sigma_theta = torch.inverse(
+            old_sigma_theta_inv + batch_size * self.sigma_x_inv)
+
+        sample_sum = torch.sum(sample, 0)
+        mean_shift = torch.matmul(old_sigma_theta_inv, self.theta)\
+            + torch.matmul(self.sigma_x_inv, sample_sum)
+
+        self.theta = torch.matmul(new_sigma_theta, mean_shift)
+        self.sigma_theta = torch.inverse(new_sigma_theta)
