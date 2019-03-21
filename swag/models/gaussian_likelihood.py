@@ -4,6 +4,7 @@ import numpy as np
 import torch.nn as nn
 import torch
 from torch.distributions.multivariate_normal import MultivariateNormal
+import swag.utils as sw_utils
 
 
 class GaussianLikelihood(nn.Module):
@@ -14,29 +15,29 @@ class GaussianLikelihood(nn.Module):
     by a multivariate gaussian.
     """
 
-    def __init__(self, dim, device=None):
+    def __init__(self, theta_0, cov_theta, cov_x, swag_settings, device=None):
         super(GaussianLikelihood, self).__init__()
 
-        self.mean = torch.nn.Parameter(
-            torch.zeros(dim, dtype=torch.double, device=device))
-        self.cov = torch.tensor(np.eye(dim), dtype=torch.double, device=device)
+        theta = torch.nn.Parameter(torch.zeros(theta_0.shape,
+                                               dtype=torch.double,
+                                               device=device))
+        cov_x = torch.tensor(cov_x, dtype=torch.double,
+                             device=device, requires_grad=False)
+        cov_theta = torch.tensor(cov_theta, dtype=torch.double,
+                                 device=device, requires_grad=False)
+        theta_0 = torch.tensor(theta_0, dtype=torch.double,
+                               device=device, requires_grad=False)
         self.device = device
+        self.swag_settings = swag_settings
 
-        self.params = nn.ParameterDict({"mean": self.mean})
-        print(self.params)
-        self.dist = MultivariateNormal(self.mean, self.cov)
-        self.criterion = torch.nn.L1Loss()
+        self.params = nn.ParameterDict({"theta": theta})
+        self.prior = MultivariateNormal(theta_0, cov_theta)
+        self.likelihood = MultivariateNormal(theta, cov_x)
+        self.posterior = Posterior(theta_0=theta_0, sigma_theta_0=cov_theta,
+                                   sigma_x=cov_x)
         self.optimizer = torch.optim.SGD(self.parameters(), lr=1e-1)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer,
-                                                         step_size=20,
-                                                         gamma=0.2)
         if self.device:
             self.to(self.device)
-
-    def set_dist_device(self, device):
-        """Need this fix to move the distributions to GPU"""
-        self.dist.loc = self.dist.loc.to(device)
-        self.dist.covariance_matrix = self.dist.covariance_matrix.to(device)
 
     def status(self, include_learning_rate=True):
         """Format parameter values into a tab separated string"""
@@ -67,18 +68,41 @@ class GaussianLikelihood(nn.Module):
         """
 
         neg_log_likelihood = self(sample)
-        return self.criterion(neg_log_likelihood,
-                              torch.zeros(1, dtype=torch.double,
-                                          device=self.device))
+        loss = torch.nn.L1Loss()
+        return loss(neg_log_likelihood,
+                    torch.zeros(1, dtype=torch.double,
+                                device=self.device))
 
-    def update_learning_rate(self, epoch=None):
+    def update_learning_rate(self, epoch):
         """Update learning rate"""
-        self.scheduler.step(epoch)
+        initial_learning_rate = self.optimizer.defaults["lr"]
+        new_learning_rate = sw_utils.schedule(epoch,
+                                              initial_learning_rate,
+                                              self.swag_settings.total_epochs,
+                                              self.swag_settings.use_swag,
+                                              self.swag_settings.swag_start_epoch,
+                                              self.swag_settings.swag_lr)
+        sw_utils.adjust_learning_rate(self.optimizer, new_learning_rate)
 
     def forward(self, sample):
         """Forward pass"""
-        return - self.dist.log_prob(sample)
+        theta = self.params["theta"]
+        prob = self.prior.log_prob(theta)
+        prob += torch.sum(self.likelihood.log_prob(sample))
+        return - prob
 
-    def true_posterior(self, cov_data):
+    def update_true_posterior(self, sample):
         """Calculate analytic posterior"""
-        raise NotImplementedError
+        self.posterior.update(sample)
+
+
+class Posterior:
+    """True posterior"""
+
+    def __init__(self, theta_0, sigma_theta_0, sigma_x):
+        self.theta = theta_0
+        # self.sigma_theta_inv = np.linalg.inv(sigma_theta_0)
+        # self.sigma_x_inv = np.linalg.inv(sigma_x)
+
+    def update(self, sample):
+        self.theta = 0

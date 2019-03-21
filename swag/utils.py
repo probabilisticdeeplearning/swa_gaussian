@@ -265,3 +265,19 @@ def torch_settings(seed=1, device=None):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     return device
+
+
+class SwagSettings:
+    """Settings placeholder"""
+
+    def __init__(self,
+                 use_swag=True,
+                 initial_learning_rate=0.1,
+                 swag_start_epoch=30,
+                 swag_lr=0.01,
+                 total_epochs=100):
+        self.use_swag = use_swag
+        self.initial_learning_rate = initial_learning_rate
+        self.swag_start_epoch = swag_start_epoch
+        self.swag_lr = swag_lr
+        self.total_epochs = total_epochs

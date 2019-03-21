@@ -12,17 +12,21 @@ c10_classes = np.array([
 
 class SyntheticGaussianData(torch.utils.data.Dataset):
 
-    def __init__(self, mean, cov, n_samples=100):
+    def __init__(self, theta_0, cov_theta, cov_x, n_samples=100):
         super(SyntheticGaussianData).__init__()
-        self.mean = mean
-        self.cov = cov
+        self.theta_0 = theta_0
+        self.cov_x = cov_x
+        self.cov_theta = cov_theta
         self.n_samples = n_samples
 
     def __len__(self):
         return self.n_samples
 
     def __getitem__(self, _):
-        return np.random.multivariate_normal(mean=self.mean, cov=self.cov)
+        theta_sampled = np.random.multivariate_normal(mean=self.theta_0,
+                                                      cov=self.cov_theta)
+        return np.random.multivariate_normal(mean=theta_sampled,
+                                             cov=self.cov_x)
 
 
 def camvid_loaders(path, batch_size, num_workers, transform_train, transform_test,
