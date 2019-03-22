@@ -90,7 +90,8 @@ class GaussianLikelihood(nn.Module):
     def forward(self, sample):
         """Forward pass"""
         theta = self.params["theta"]
-        prob = self.prior.log_prob(theta)
+        batch_size = sample.size()[0]
+        prob = batch_size * self.prior.log_prob(theta)
         prob += torch.sum(self.likelihood.log_prob(sample))
         return - prob
 
