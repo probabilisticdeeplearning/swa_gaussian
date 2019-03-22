@@ -285,3 +285,6 @@ class SwagSettings:
         self.swag_start_epoch = swag_start_epoch
         self.swag_lr = swag_lr
         self.total_epochs = total_epochs
+
+    def should_store(self, epoch):
+        return self.use_swag and epoch >= self.swag_start_epoch

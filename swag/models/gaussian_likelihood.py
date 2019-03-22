@@ -29,6 +29,7 @@ class GaussianLikelihood(nn.Module):
                                device=device, requires_grad=False)
         self.device = device
         self.swag_settings = swag_settings
+        self.theta_store = list()
 
         self.params = nn.ParameterDict({"theta": theta})
         self.prior = MultivariateNormal(theta_0, cov_theta)
@@ -52,7 +53,7 @@ class GaussianLikelihood(nn.Module):
                 self.optimizer.param_groups[0]["lr"])
         return status
 
-    def train_epoch(self, data_train_loader):
+    def train_epoch(self, data_train_loader, store_swag=False):
         """Train epoch"""
         for sample in data_train_loader:
             sample = sample.to(self.device)
@@ -61,6 +62,14 @@ class GaussianLikelihood(nn.Module):
             loss.backward()
             self.optimizer.step()
             self.update_true_posterior(sample)
+            if store_swag:
+                self.store_swag()
+
+    def store_swag(self):
+        self.theta_store.append(self.params["theta"].clone())
+
+    def store_swag_to_numpy(self):
+        self.theta_store = torch.stack(self.theta_store).data.cpu().numpy()
 
     def neg_log_likelihood(self, sample):
         """Custom loss
