@@ -35,7 +35,7 @@ class GaussianLikelihood(nn.Module):
         self.prior = MultivariateNormal(theta_0, cov_theta)
         self.likelihood = MultivariateNormal(theta, cov_x)
         self.posterior = Posterior(theta_0=theta_0, sigma_theta_0=cov_theta,
-                                   sigma_x=cov_x)
+                                   sigma_x=cov_x, device=self.device)
         self.optimizer = torch.optim.SGD(self.parameters(), lr=1e-1)
         if self.device:
             self.to(self.device)
@@ -112,12 +112,26 @@ class GaussianLikelihood(nn.Module):
 class Posterior:
     """True posterior"""
 
-    def __init__(self, theta_0, sigma_theta_0, sigma_x):
+    def __init__(self, theta_0, sigma_theta_0, sigma_x, device=None):
+        self.device = device
         self.theta = theta_0
         self.sigma_theta = sigma_theta_0
         self.sigma_x_inv = torch.inverse(sigma_x)
 
+    def __repr__(self):
+        str_ = "Post mean:\n"
+        for theta_coord in self.theta.data.cpu().numpy():
+            str_ += "\t{}\n".format(theta_coord)
+
+        str_ += "\n"
+        str_ += "Post covariance:\n"
+        for cov_part in self.sigma_theta.data.cpu().numpy():
+            str_ += "\t{}\n".format(cov_part)
+
+        return str_
+
     def update(self, sample):
+        sample = sample.to(self.device)
         batch_size = sample.size()[0]
         old_sigma_theta_inv = torch.inverse(self.sigma_theta)
         new_sigma_theta = torch.inverse(
@@ -128,4 +142,4 @@ class Posterior:
             + torch.matmul(self.sigma_x_inv, sample_sum)
 
         self.theta = torch.matmul(new_sigma_theta, mean_shift)
-        self.sigma_theta = torch.inverse(new_sigma_theta)
+        self.sigma_theta = new_sigma_theta

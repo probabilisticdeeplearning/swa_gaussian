@@ -17,8 +17,7 @@ def plot_bivariate(sample, true_post):
     x_vals = sample[:, 0]
     y_vals = sample[:, 1]
     plt.plot(x_vals, y_vals, "bo")
-    plot_cov_ellipse(np.cov(sample.T), mean)
-
+    plot_cov_ellipse(cov, mean)
     plt.show()
 
 
@@ -68,9 +67,11 @@ def main():
     theta_0 = 30 * np.ones(dim, dtype=np.double)
     cov_theta = np.eye(dim)
     cov_x = np.eye(dim)
+    dataset_file = "data/gaussian/{}dim.csv".format(dim)
     dataset = sw_data.SyntheticGaussianData(theta_0=theta_0,
                                             cov_theta=cov_theta,
                                             cov_x=cov_x,
+                                            store_file=dataset_file,
                                             n_samples=100)
     data_train_loader = torch.utils.data.DataLoader(dataset,
                                                     batch_size=batch_size,
@@ -92,12 +93,11 @@ def main():
         print("Epoch: {}\t {}".format(epoch, model.status()))
         model.train_epoch(data_train_loader, swag_settings.should_store(epoch))
         model.update_learning_rate(epoch)
+    #model.posterior.update(torch.tensor(dataset.get_full_data(),
+    #                                    dtype=torch.double,
+    #                                    requires_grad=False))
     model.store_swag_to_numpy()
 
-    print(np.cov(model.theta_store.T))
-    print(model.posterior.sigma_theta.data.cpu().numpy())
-    print("Post mean", model.posterior.theta.data.cpu().numpy())
-    print("Sample mean", np.mean(model.theta_store))
     plot_bivariate(model.theta_store, model.posterior)
 
 

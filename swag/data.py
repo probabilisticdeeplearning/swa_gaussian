@@ -1,7 +1,10 @@
+import os
+import csv
+from pathlib import Path
+
 import numpy as np
 import torch
 import torchvision
-import os
 
 from .camvid import CamVid
 
@@ -12,21 +15,58 @@ c10_classes = np.array([
 
 class SyntheticGaussianData(torch.utils.data.Dataset):
 
-    def __init__(self, theta_0, cov_theta, cov_x, n_samples=100):
+    def __init__(self, theta_0, cov_theta, cov_x, store_file,
+                 reuse_data=False, n_samples=100):
         super(SyntheticGaussianData).__init__()
         self.theta_0 = theta_0
         self.cov_x = cov_x
         self.cov_theta = cov_theta
         self.n_samples = n_samples
+        self.file = Path(store_file)
+        if self.file.exists() and reuse_data:
+            with self.file.open(newline="") as csv_file:
+                csv_reader = csv.reader(csv_file, delimiter=",", quotechar="|")
+                assert len(theta_0) == len(next(csv_reader))
+                assert n_samples - 1 == sum(1 for row in csv_reader)
+        else:
+            self.file.parent.mkdir(parents=True, exist_ok=True)
+            sampled_theta = np.random.multivariate_normal(mean=self.theta_0,
+                                                          cov=self.cov_theta,
+                                                          size=n_samples)
+            sampled_x = np.array([
+                np.random.multivariate_normal(mean=theta, cov=self.cov_x)
+                for theta in sampled_theta
+            ])
+            np.savetxt(self.file, sampled_x, delimiter=",")
 
     def __len__(self):
         return self.n_samples
 
-    def __getitem__(self, _):
-        theta_sampled = np.random.multivariate_normal(mean=self.theta_0,
-                                                      cov=self.cov_theta)
-        return np.random.multivariate_normal(mean=theta_sampled,
-                                             cov=self.cov_x)
+    def __getitem__(self, index):
+        sample = None
+        with self.file.open(newline="") as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=",", quotechar="|")
+            for count, row in enumerate(csv_reader):
+                if count == index:
+                    sample = row
+                    break
+
+        return np.array(sample, dtype=float)
+
+    def calculate_sufficient_statistics(self):
+        return self.n_samples, np.sum(self.get_full_data())
+
+    def get_full_data(self):
+        tmp_raw_data = list()
+        with self.file.open(newline="") as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=",", quotechar="|")
+            tmp_raw_data = [data for data in csv_reader]
+        return np.array(tmp_raw_data, dtype=float)
+
+
+
+
+
 
 
 def camvid_loaders(path, batch_size, num_workers, transform_train, transform_test,
