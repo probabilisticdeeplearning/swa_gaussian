@@ -128,4 +128,4 @@ class Posterior:
             + torch.matmul(self.sigma_x_inv, sample_sum)
 
         self.theta = torch.matmul(new_sigma_theta, mean_shift)
-        self.sigma_theta = torch.inverse(new_sigma_theta)
+        self.sigma_theta = new_sigma_theta
