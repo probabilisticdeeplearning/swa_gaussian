@@ -61,7 +61,6 @@ class GaussianLikelihood(nn.Module):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            self.update_true_posterior(sample)
             if store_swag:
                 self.store_swag()
 
