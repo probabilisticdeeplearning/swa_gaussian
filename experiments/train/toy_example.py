@@ -61,9 +61,9 @@ def plot_cov_ellipse(cov, pos, nstd=1, ax=plt.gca(), **kwargs):
 
 def main():
     """Main entry point"""
-    dim = 2
+    dim = 5
     batch_size = 5
-    num_epochs = 30
+    num_epochs = 2
     theta_0 = 30 * np.ones(dim, dtype=np.double)
     cov_theta = np.eye(dim)
     cov_x = np.eye(dim)
@@ -93,9 +93,9 @@ def main():
         print("Epoch: {}\t {}".format(epoch, model.status()))
         model.train_epoch(data_train_loader, swag_settings.should_store(epoch))
         model.update_learning_rate(epoch)
-    #model.posterior.update(torch.tensor(dataset.get_full_data(),
-    #                                    dtype=torch.double,
-    #                                    requires_grad=False))
+    # model.posterior.update(torch.tensor(dataset.get_full_data(),
+    #                                     dtype=torch.double,
+    #                                     requires_grad=False))
     model.store_swag_to_numpy()
 
     plot_bivariate(model.theta_store, model.posterior)
