@@ -61,11 +61,11 @@ def plot_cov_ellipse(cov, pos, nstd=1, ax=plt.gca(), **kwargs):
 
 def main():
     """Main entry point"""
-    dim = 5
+    dim = 2
     batch_size = 5
-    num_epochs = 2
-    theta_0 = 30 * np.ones(dim, dtype=np.double)
-    cov_theta = np.eye(dim)
+    num_epochs = 100
+    theta_0 = 1 * np.array([1, 0], dtype=np.double).T
+    cov_theta = np.array([[1, 0.7], [0.7, 1]])
     cov_x = np.eye(dim)
     dataset_file = "data/gaussian/{}dim.csv".format(dim)
     dataset = sw_data.SyntheticGaussianData(theta_0=theta_0,
@@ -93,12 +93,15 @@ def main():
         print("Epoch: {}\t {}".format(epoch, model.status()))
         model.train_epoch(data_train_loader, swag_settings.should_store(epoch))
         model.update_learning_rate(epoch)
-    # model.posterior.update(torch.tensor(dataset.get_full_data(),
-    #                                     dtype=torch.double,
-    #                                     requires_grad=False))
+    model.posterior.update(torch.tensor(dataset.get_full_data(),
+                                        dtype=torch.double,
+                                        requires_grad=False))
     model.store_swag_to_numpy()
+    print(model.posterior)
 
-    plot_bivariate(model.theta_store, model.posterior)
+    plot = True
+    if dim == 2 and plot:
+        plot_bivariate(model.theta_store, model.posterior)
 
 
 if __name__ == "__main__":

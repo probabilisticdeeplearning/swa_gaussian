@@ -119,24 +119,6 @@ class Posterior:
         self.sigma_x_inv = torch.inverse(sigma_x).clone().detach()
 
     def __repr__(self):
-        str_ = "Posterior gaussian distribution\n"
-        str_ += "Mean:\n"
-        for component in self.theta.clone().detach().data.cpu().numpy():
-            str_ += "\t{:.3g}\n".format(component)
-
-        cov = self.sigma_theta.data.cpu().numpy()
-        str_ += "Covariance:\n"
-        if len(self.sigma_theta) > 1:
-            for row in cov:
-                for col in row:
-                    str_ += "\t{:.3g}".format(col)
-                str_ += "\n"
-        else:
-            str_ += "\t{:.3g}".format(cov[0][0])
-
-        return str_
-
-    def __repr__(self):
         str_ = "Post mean:\n"
         for theta_coord in self.theta.data.cpu().numpy():
             str_ += "\t{}\n".format(theta_coord)
@@ -150,6 +132,8 @@ class Posterior:
 
     def update(self, sample):
         sample = sample.to(self.device)
+        dim = self.theta.shape[0]
+        self.theta = torch.reshape(self.theta, (dim, 1))
         if sample.nelement() == 1:
             batch_size = 1
         else:
@@ -158,14 +142,20 @@ class Posterior:
         new_sigma_theta = torch.inverse(
             old_sigma_theta_inv + batch_size * self.sigma_x_inv)
 
-        sample_sum = torch.sum(sample, 0)
+        sample_sum = torch.reshape(torch.sum(sample, 0), (dim, 1))
         mean_shift = torch.matmul(old_sigma_theta_inv, self.theta)\
             + torch.matmul(self.sigma_x_inv, sample_sum)
 
         self.theta = torch.matmul(new_sigma_theta, mean_shift)
         self.sigma_theta = new_sigma_theta
 
+
 def kl_div_gaussian(mu_1, Sigma_1, mu_2, Sigma_2):
+    """Calculates the KL div between two arb. gaussian distributions
+    Represented by mu_1,2 as n x 1 torch tensors and
+    Sigma_1,2 as n x n torch tensors
+    """
+
     Sigma_2_inv = torch.inverse(Sigma_2)
     trace_term = torch.trace(torch.matmul(Sigma_2_inv, Sigma_1))
 

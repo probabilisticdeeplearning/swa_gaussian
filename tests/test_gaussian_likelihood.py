@@ -25,7 +25,6 @@ class TestKLDiv(unittest.TestCase):
         Random mu and sigma_sq
         """
 
-        # 1D
         dim = 1
         mu_1 = 1 * torch.ones(dim, 1)
         sigma_sq_1 = np.random.rand()
@@ -44,7 +43,6 @@ class TestKLDiv(unittest.TestCase):
         Deterministic dim, mu and sigma_sq
         """
 
-        # Multivariate deterministic
         dim = 10
         mu_1 = torch.ones(dim, 1)
         sigma_sq_1 = torch.ones(dim, 1)
@@ -62,7 +60,6 @@ class TestKLDiv(unittest.TestCase):
         Random dim, mu and sigma_sq
         """
 
-        # Multivariate random
         dim = np.random.randint(1, 10)
         mu_1 = torch.rand(dim, 1)
         sigma_sq_1 = torch.rand(dim, 1)
