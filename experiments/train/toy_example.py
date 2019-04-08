@@ -17,7 +17,7 @@ def plot_bivariate(sample, true_post):
     x_vals = sample[:, 0]
     y_vals = sample[:, 1]
     plt.plot(x_vals, y_vals, "bo")
-    plot_cov_ellipse(np.cov(sample.T), mean)
+    plot_cov_ellipse(cov, mean)
 
     plt.show()
 
@@ -62,9 +62,9 @@ def plot_cov_ellipse(cov, pos, nstd=1, ax=plt.gca(), **kwargs):
 
 def main():
     """Main entry point"""
-    dim = 2
+    dim = 5
     batch_size = 5
-    num_epochs = 30
+    num_epochs = 2
     theta_0 = 30 * np.ones(dim, dtype=np.double)
     cov_theta = np.eye(dim)
     cov_x = np.eye(dim)
@@ -94,11 +94,8 @@ def main():
         model.update_learning_rate(epoch)
     model.store_swag_to_numpy()
 
-    print(np.cov(model.theta_store.T))
-    print(model.posterior.sigma_theta.data.cpu().numpy())
-    print("Post mean", model.posterior.theta.data.cpu().numpy())
-    print("Sample mean", np.mean(model.theta_store))
-    plot_bivariate(model.theta_store, model.posterior)
+    #plot_bivariate(model.theta_store, model.posterior)
+    print(model.posterior)
 
 
 if __name__ == "__main__":

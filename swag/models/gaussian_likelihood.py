@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch
 from torch.distributions.multivariate_normal import MultivariateNormal
 import swag.utils as sw_utils
+import decimal
 
 
 class GaussianLikelihood(nn.Module):
@@ -113,12 +114,34 @@ class Posterior:
     """True posterior"""
 
     def __init__(self, theta_0, sigma_theta_0, sigma_x):
-        self.theta = theta_0
-        self.sigma_theta = sigma_theta_0
-        self.sigma_x_inv = torch.inverse(sigma_x)
+        self.theta = theta_0.clone().detach()
+        self.sigma_theta = sigma_theta_0.clone().detach()
+        self.sigma_x_inv = torch.inverse(sigma_x).clone().detach()
+
+    def __repr__(self):
+        str_ = "Posterior gaussian distribution\n"
+        str_ += "Mean:\n"
+        for component in self.theta.clone().detach().data.cpu().numpy():
+            str_ += "\t{:.3g}\n".format(component)
+
+        cov = self.sigma_theta.data.cpu().numpy()
+        str_ += "Covariance:\n"
+        if len(self.sigma_theta) > 1:
+            for row in cov:
+                for col in row:
+                    str_ += "\t{:.3g}".format(col)
+                str_ += "\n"
+        else:
+            str_ += "\t{:.3g}".format(cov[0][0])
+
+
+        return str_
 
     def update(self, sample):
-        batch_size = sample.size()[0]
+        if sample.nelement() == 1:
+            batch_size = 1
+        else:
+            batch_size = sample.size()[0]
         old_sigma_theta_inv = torch.inverse(self.sigma_theta)
         new_sigma_theta = torch.inverse(
             old_sigma_theta_inv + batch_size * self.sigma_x_inv)
@@ -129,3 +152,15 @@ class Posterior:
 
         self.theta = torch.matmul(new_sigma_theta, mean_shift)
         self.sigma_theta = new_sigma_theta
+
+def kl_div_gaussian(mu_1, Sigma_1, mu_2, Sigma_2):
+    Sigma_2_inv = torch.inverse(Sigma_2)
+    trace_term = torch.trace(torch.matmul(Sigma_2_inv, Sigma_1))
+
+    mean_diff = mu_2 - mu_1
+    quadratic_term = torch.matmul(mean_diff.t(),
+                                  torch.matmul(Sigma_2_inv, mean_diff))
+
+    determinant_term = np.log(np.linalg.det(Sigma_2) / np.linalg.det(Sigma_1))
+    kl_div = (trace_term + quadratic_term - len(mu_1) + determinant_term) / 2
+    return kl_div.item()
