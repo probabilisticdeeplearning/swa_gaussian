@@ -3,14 +3,27 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import patches
 from matplotlib import cm
+import matplotlib2tikz
 import torch
+import scipy.stats as sp_stats
 
 import swag.data as sw_data
 import swag.models.gaussian_likelihood as sw_gauss
 import swag.utils as sw_utils
 
+def plot_univariate(sample, true_post, to_tikz=False, num_points=50, bins=50):
+    mean = true_post.theta.item()
+    sigma = np.sqrt(true_post.sigma_theta.item())
+    points = np.linspace(mean - 2 * sigma, mean + 2 * sigma, num_points)
+    pdf = sp_stats.norm.pdf(points, loc=mean, scale=sigma)
+    plt.hist(sample, density=True, bins=bins)
+    plt.plot(points, pdf)
+    if to_tikz:
+        matplotlib2tikz.save("test.tex")
+    plt.show()
 
-def plot_bivariate(sample, true_post):
+
+def plot_bivariate(sample, true_post, to_tikz=False, show=True):
 
     mean = true_post.theta.data.cpu().numpy()
     cov = true_post.sigma_theta.data.cpu().numpy()
@@ -18,8 +31,9 @@ def plot_bivariate(sample, true_post):
     y_vals = sample[:, 1]
     plt.plot(x_vals, y_vals, "bo")
     plot_cov_ellipse(cov, mean)
+    if to_tikz:
+        matplotlib2tikz.save("test.tex")
     plt.show()
-
 
 def plot_cov_ellipse(cov, pos, nstd=1, ax=plt.gca(), **kwargs):
     """
@@ -53,20 +67,27 @@ def plot_cov_ellipse(cov, pos, nstd=1, ax=plt.gca(), **kwargs):
     # Width and height are "full" widths, not radius
     width, height = 2 * nstd * np.sqrt(vals)
     ellipse = patches.Ellipse(xy=pos, width=width, height=height,
-                              angle=theta, **kwargs)
+                              angle=theta)
 
     ax.add_artist(ellipse)
     return ellipse
 
 
+def plot_dataset(data, posterior):
+    plot_bivariate(data, posterior)
+
+
 def main():
     """Main entry point"""
-    dim = 2
+    dim = 1
     batch_size = 5
     num_epochs = 100
     theta_0 = 1 * np.array([1, 0], dtype=np.double).T
-    cov_theta = np.array([[1, 0.7], [0.7, 1]])
-    cov_x = np.eye(dim)
+    cov_theta = np.array([[1, 0.5], [0.5, 1]])
+
+    cov_theta = 0.25 * np.eye(dim)
+    cov_x = cov_theta
+    theta_0 = np.zeros(1)
     dataset_file = "data/gaussian/{}dim.csv".format(dim)
     dataset = sw_data.SyntheticGaussianData(theta_0=theta_0,
                                             cov_theta=cov_theta,
@@ -79,7 +100,7 @@ def main():
     device = sw_utils.torch_settings()
     swag_settings = sw_utils.SwagSettings(use_swag=True,
                                           initial_learning_rate=0.1,
-                                          swag_start_epoch=num_epochs - 25,
+                                          swag_start_epoch=25,
                                           swag_lr=0.01,
                                           total_epochs=num_epochs)
 
@@ -89,19 +110,22 @@ def main():
                                         swag_settings=swag_settings,
                                         device=device)
 
+    model.posterior.update(torch.tensor(dataset.get_full_data(),
+                                        dtype=torch.double,
+                                        requires_grad=False))
+
     for epoch in range(num_epochs):
         print("Epoch: {}\t {}".format(epoch, model.status()))
         model.train_epoch(data_train_loader, swag_settings.should_store(epoch))
         model.update_learning_rate(epoch)
-    model.posterior.update(torch.tensor(dataset.get_full_data(),
-                                        dtype=torch.double,
-                                        requires_grad=False))
     model.store_swag_to_numpy()
     print(model.posterior)
 
     plot = True
     if dim == 2 and plot:
-        plot_bivariate(model.theta_store, model.posterior)
+        plot_bivariate(model.theta_store, model.posterior, to_tikz=False)
+    elif dim == 1 and plot:
+        plot_univariate(model.theta_store, model.posterior, to_tikz=True)
 
 
 if __name__ == "__main__":

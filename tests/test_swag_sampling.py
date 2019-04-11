@@ -14,7 +14,12 @@ class Test_SWAG_Sampling(unittest.TestCase):
     def test_swag_cov(self, **kwargs):
         model = torch.nn.Linear(300, 3, bias=True)
 
-        swag_model = SWAG(torch.nn.Linear, in_features=300, out_features=3, bias=True, no_cov_mat=False, max_num_models=100, loading=False)
+        swag_model = SWAG(torch.nn.Linear,
+                          in_features=300,
+                          out_features=3,
+                          bias=True,
+                          no_cov_mat=False,
+                          max_num_models=100)
 
         optimizer = torch.optim.SGD(model.parameters(), lr = 1e-3)
 
@@ -27,9 +32,9 @@ class Test_SWAG_Sampling(unittest.TestCase):
             output = model(input)
             loss = ((torch.randn(100, 3) - output)**2.0).sum()
             loss.backward()
-            
+
             optimizer.step()
-            
+
             swag_model.collect_model(model)
 
         # check to ensure parameters have the correct sizes
@@ -61,7 +66,7 @@ class Test_SWAG_Sampling(unittest.TestCase):
             scaled_cov_mat = true_cov_mat * scale
             scaled_cov_inv = torch.inverse(scaled_cov_mat)
             # now test to ensure that sampling has the correct covariance matrix probabilistically
-            all_qforms = []            
+            all_qforms = []
             for _ in range(2000):
                 swag_model.sample(scale = scale, cov = True)
                 curr_pars = []
@@ -73,18 +78,23 @@ class Test_SWAG_Sampling(unittest.TestCase):
                 qform = dev.matmul(scaled_cov_inv).matmul(dev)
 
                 all_qforms.append(qform.item())
-            
+
             samples_in_cr = (np.array(all_qforms) < test_cutoff).sum()
             print(samples_in_cr)
 
             #between 94 and 96% of the samples should fall within the threshold
             #this should be very loose
-            self.assertTrue(1880 <= samples_in_cr <= 1920) 
+            self.assertTrue(1880 <= samples_in_cr <= 1920)
 
     def test_swag_diag(self, **kwargs):
         model = torch.nn.Linear(300, 3, bias=True)
 
-        swag_model = SWAG(torch.nn.Linear, in_features=300, out_features=3, bias=True, no_cov_mat=True, max_num_models=100, loading=False)
+        swag_model = SWAG(torch.nn.Linear,
+                          in_features=300,
+                          out_features=3,
+                          bias=True,
+                          no_cov_mat=True,
+                          max_num_models=100)
 
         optimizer = torch.optim.SGD(model.parameters(), lr = 1e-3)
 
@@ -97,9 +107,9 @@ class Test_SWAG_Sampling(unittest.TestCase):
             output = model(input)
             loss = ((torch.randn(100, 3) - output)**2.0).sum()
             loss.backward()
-            
+
             optimizer.step()
-            
+
             swag_model.collect_model(model)
 
         # check to ensure parameters have the correct sizes
@@ -117,9 +127,9 @@ class Test_SWAG_Sampling(unittest.TestCase):
 
         mean = flatten(mean_list).cuda()
         sq_mean = flatten(sq_mean_list).cuda()
-        
-        
-         
+
+
+
         for scale in [0.01, 0.1, 0.5, 1.0, 2.0, 5.0]:
             var = scale * (sq_mean - mean ** 2)
 
@@ -127,20 +137,20 @@ class Test_SWAG_Sampling(unittest.TestCase):
             dist = torch.distributions.Normal(mean, std)
 
             # now test to ensure that sampling has the correct covariance matrix probabilistically
-            all_qforms = 0           
+            all_qforms = 0
             for _ in range(20):
                 swag_model.sample(scale = scale, cov = False)
                 curr_pars = []
                 for (module, name) in swag_model.params:
                     curr_pars.append( getattr(module, name) )
-                
+
                 curr_probs = dist.cdf(flatten(curr_pars))
 
                 #check if within 95% CI
                 num_in_cr = ((curr_probs > 0.025) & (curr_probs < 0.975)).float().sum()
                 #all_qforms.append( num_in_cr )
                 all_qforms += num_in_cr
-            
+
             #print(all_qforms/(20 * mean.numel()))
             # now compute average
             avg_prob_in_cr = all_qforms/(20 * mean.numel())

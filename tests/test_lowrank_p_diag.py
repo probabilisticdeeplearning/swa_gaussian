@@ -18,7 +18,7 @@ class Test_LowRank_P_Diag(unittest.TestCase):
             torch.cuda.manual_seed_all(seed)
         else:
             device = torch.device('cpu')
-            
+
         D = torch.randn(N, p, device = device)
         A = torch.randn(N, device = device).abs() * 1e-3 + 0.1
 
@@ -31,20 +31,20 @@ class Test_LowRank_P_Diag(unittest.TestCase):
         #DD' + diag(A)
         lowrank_pdiag_lt = AddedDiagLazyTensor(diag_term, D_lt)
 
-        
+
         #z \sim N(0,I), mean = 1
         z = torch.randn(N, device = device)
         mean = torch.ones(N, device = device)
 
         diff = mean - z
-        
+
         print(lowrank_pdiag_lt.log_det())
         logdet = lowrank_pdiag_lt.log_det()
         inv_matmul = lowrank_pdiag_lt.inv_matmul(diff.unsqueeze(1)).squeeze(1)
         inv_matmul_quad = torch.dot(diff, inv_matmul)
 
         """inv_matmul_quad_qld, logdet_qld = lowrank_pdiag_lt.inv_quad_log_det(inv_quad_rhs=diff.unsqueeze(1), log_det = True)
-        
+
         """
 
         """from gpytorch.functions._inv_quad_log_det import InvQuadLogDet
@@ -66,7 +66,7 @@ class Test_LowRank_P_Diag(unittest.TestCase):
         #diff_norm = diff.norm()
         #diff = diff/diff_norm
         rhs = torch.cat([diff.unsqueeze(1), probe_vectors],dim=1)
-        
+
         solves, t_mat = gpytorch.utils.linear_cg(
                 lowrank_pdiag_lt.matmul,
                 rhs,
@@ -86,13 +86,13 @@ class Test_LowRank_P_Diag(unittest.TestCase):
         )
         print('diff_solve_norm: ', diff_solve.norm())
         print('diff between multiple linear_cg: ', (inv_matmul_qld.unsqueeze(1) - diff_solve).norm()/diff_solve.norm())
-        
+
         eigenvalues, eigenvectors = gpytorch.utils.lanczos.lanczos_tridiag_to_diag(t_mat)
         slq = gpytorch.utils.StochasticLQ()
         log_det_term, = slq.evaluate(lowrank_pdiag_lt.matrix_shape, eigenvalues, eigenvectors, [lambda x: x.log()])
         logdet_qld = log_det_term + lowrank_pdiag_lt._preconditioner()[1]
 
-        
+
         print('Log det difference: ', (logdet - logdet_qld).norm()/logdet.norm())
         print('inv matmul difference: ', (inv_matmul - inv_matmul_qld).norm()/inv_matmul_quad.norm())
 
