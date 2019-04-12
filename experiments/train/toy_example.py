@@ -1,5 +1,6 @@
 """Swag for toy example"""
 import numpy as np
+import numpy.linalg as np_la
 from matplotlib import pyplot as plt
 from matplotlib import patches
 from matplotlib import cm
@@ -10,6 +11,7 @@ import scipy.stats as sp_stats
 import swag.data as sw_data
 import swag.models.gaussian_likelihood as sw_gauss
 import swag.utils as sw_utils
+
 
 def plot_univariate(sample, true_post, to_tikz=False, num_points=50, bins=50):
     mean = true_post.theta.item()
@@ -23,19 +25,34 @@ def plot_univariate(sample, true_post, to_tikz=False, num_points=50, bins=50):
     plt.show()
 
 
-def plot_bivariate(sample, true_post, to_tikz=False, show=True):
+def plot_quadratic_form(mean, cov, num_points=100):
+    x_points = np.linspace(mean[0, 0] - 2 * cov[0, 0],
+                           mean[0, 0] + 2 * cov[0, 0], num_points)
+    y_points = np.linspace(mean[1, 0] - 2 * cov[1, 1],
+                           mean[1, 0] + 2 * cov[1, 1], num_points)
+    z_values = np.zeros((len(x_points), len(y_points)))
+    for x_ind, x_coord in enumerate(x_points):
+        for y_ind, y_coord in enumerate(y_points):
+            diff = np.array([[x_coord], [y_coord]]) - mean
+            tmp_val = np.matmul(np.matmul(diff.T, np_la.inv(cov)), diff)[0][0]
+            z_values[x_ind][y_ind] = tmp_val
+    plt.contour(x_points, y_points, z_values, 3)
 
+
+def plot_bivariate(sample, true_post, to_tikz=False, show=True):
     mean = true_post.theta.data.cpu().numpy()
     cov = true_post.sigma_theta.data.cpu().numpy()
     x_vals = sample[:, 0]
     y_vals = sample[:, 1]
     plt.plot(x_vals, y_vals, "bo")
-    plot_cov_ellipse(cov, mean)
+    plot_cov_ellipse(mean, cov)
+    plot_quadratic_form(mean, cov)
     if to_tikz:
         matplotlib2tikz.save("test.tex")
     plt.show()
 
-def plot_cov_ellipse(cov, pos, nstd=1, ax=plt.gca(), **kwargs):
+
+def plot_cov_ellipse(pos, cov, nstd=1, ax=plt.gca(), **kwargs):
     """
     Plots an `nstd` sigma error ellipse based on the specified covariance
     matrix (`cov`). Additional keyword arguments are passed on to the
@@ -56,6 +73,7 @@ def plot_cov_ellipse(cov, pos, nstd=1, ax=plt.gca(), **kwargs):
     -------
         A matplotlib ellipse artist
     """
+
     def eigsorted(cov):
         vals, vecs = np.linalg.eigh(cov)
         order = vals.argsort()[::-1]
@@ -66,8 +84,7 @@ def plot_cov_ellipse(cov, pos, nstd=1, ax=plt.gca(), **kwargs):
 
     # Width and height are "full" widths, not radius
     width, height = 2 * nstd * np.sqrt(vals)
-    ellipse = patches.Ellipse(xy=pos, width=width, height=height,
-                              angle=theta)
+    ellipse = patches.Ellipse(xy=pos, width=width, height=height, angle=theta)
 
     ax.add_artist(ellipse)
     return ellipse
@@ -79,15 +96,16 @@ def plot_dataset(data, posterior):
 
 def main():
     """Main entry point"""
-    dim = 1
+    dim = 2
     batch_size = 5
-    num_epochs = 100
+    num_epochs = 30
     theta_0 = 1 * np.array([1, 0], dtype=np.double).T
     cov_theta = np.array([[1, 0.5], [0.5, 1]])
 
-    cov_theta = 0.25 * np.eye(dim)
+    #theta_0 = np.zeros(1)
+    #cov_theta = 0.25 * np.eye(dim)
+
     cov_x = cov_theta
-    theta_0 = np.zeros(1)
     dataset_file = "data/gaussian/{}dim.csv".format(dim)
     dataset = sw_data.SyntheticGaussianData(theta_0=theta_0,
                                             cov_theta=cov_theta,
@@ -100,7 +118,7 @@ def main():
     device = sw_utils.torch_settings()
     swag_settings = sw_utils.SwagSettings(use_swag=True,
                                           initial_learning_rate=0.1,
-                                          swag_start_epoch=25,
+                                          swag_start_epoch=5,
                                           swag_lr=0.01,
                                           total_epochs=num_epochs)
 
@@ -110,9 +128,10 @@ def main():
                                         swag_settings=swag_settings,
                                         device=device)
 
-    model.posterior.update(torch.tensor(dataset.get_full_data(),
-                                        dtype=torch.double,
-                                        requires_grad=False))
+    model.posterior.update(
+        torch.tensor(dataset.get_full_data(),
+                     dtype=torch.double,
+                     requires_grad=False))
 
     for epoch in range(num_epochs):
         print("Epoch: {}\t {}".format(epoch, model.status()))
@@ -129,4 +148,8 @@ def main():
 
 
 if __name__ == "__main__":
+    # mean = 1 * np.array([[1, 0]], dtype=np.double).T
+    # cov = np.array([[1, 0.5], [0.5, 1]])
+    # plot_quadratic_form(mean, cov)
+    # plt.show()
     main()

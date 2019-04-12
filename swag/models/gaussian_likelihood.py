@@ -111,7 +111,6 @@ class GaussianLikelihood(nn.Module):
         Args:
           sample (torch.tensor): Size: (#samples, dimension)
         """
-        print(sample.size())
         theta = self.params["theta"]
         prob = self.prior.log_prob(theta)
         prob += torch.sum(self.likelihood.log_prob(sample))
