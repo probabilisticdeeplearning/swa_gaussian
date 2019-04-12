@@ -19,7 +19,7 @@ class SyntheticGaussianData(torch.utils.data.Dataset):
                  store_file,
                  reuse_data=False,
                  n_samples=100,
-                 resample_theta=False):
+                 resample_theta=True):
         super(SyntheticGaussianData).__init__()
         self.theta_0 = theta_0
         self.cov_x = cov_x

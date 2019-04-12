@@ -98,8 +98,8 @@ def main():
     """Main entry point"""
     dim = 2
     batch_size = 5
-    num_epochs = 30
-    theta_0 = 1 * np.array([1, 0], dtype=np.double).T
+    num_epochs = 100
+    theta_0 = 1 * np.array([1, 0], dtype=np.double)
     cov_theta = np.array([[1, 0.5], [0.5, 1]])
 
     #theta_0 = np.zeros(1)
@@ -111,15 +111,17 @@ def main():
                                             cov_theta=cov_theta,
                                             cov_x=cov_x,
                                             store_file=dataset_file,
-                                            n_samples=100)
+                                            n_samples=100,
+                                            resample_theta=False
+                                            )
     data_train_loader = torch.utils.data.DataLoader(dataset,
                                                     batch_size=batch_size,
                                                     shuffle=True)
     device = sw_utils.torch_settings()
     swag_settings = sw_utils.SwagSettings(use_swag=True,
-                                          initial_learning_rate=0.1,
-                                          swag_start_epoch=5,
-                                          swag_lr=0.01,
+                                          initial_learning_rate=0.05,
+                                          swag_start_epoch=20,
+                                          swag_lr=0.005,
                                           total_epochs=num_epochs)
 
     model = sw_gauss.GaussianLikelihood(theta_0,
@@ -148,8 +150,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # mean = 1 * np.array([[1, 0]], dtype=np.double).T
-    # cov = np.array([[1, 0.5], [0.5, 1]])
-    # plot_quadratic_form(mean, cov)
-    # plt.show()
     main()

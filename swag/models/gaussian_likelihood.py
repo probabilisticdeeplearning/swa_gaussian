@@ -21,30 +21,32 @@ class GaussianLikelihood(nn.Module):
 
         theta = torch.nn.Parameter(
             torch.zeros(theta_0.shape, dtype=torch.double, device=device))
-        cov_x = torch.tensor(cov_x,
-                             dtype=torch.double,
-                             device=device,
-                             requires_grad=False)
-        cov_theta = torch.tensor(cov_theta,
+        self.cov_x = torch.tensor(cov_x,
+                                  dtype=torch.double,
+                                  device=device,
+                                  requires_grad=False)
+        self.cov_theta = torch.tensor(cov_theta,
                                  dtype=torch.double,
                                  device=device,
                                  requires_grad=False)
-        theta_0 = torch.tensor(theta_0,
-                               dtype=torch.double,
-                               device=device,
-                               requires_grad=False)
+        self.theta_0 = torch.tensor(theta_0,
+                                    dtype=torch.double,
+                                    device=device,
+                                    requires_grad=False)
+        self.inv_cov_x = torch.inverse(self.cov_x)
+        self.inv_cov_theta = torch.inverse(self.cov_theta)
         self.device = device
         self.swag_settings = swag_settings
         self.theta_store = list()
 
         self.params = nn.ParameterDict({"theta": theta})
-        self.prior = torch_mvn.MultivariateNormal(loc=theta_0,
-                                                  covariance_matrix=cov_theta)
-        self.likelihood = torch_mvn.MultivariateNormal(loc=theta,
-                                                       covariance_matrix=cov_x)
-        self.posterior = Posterior(theta_0=theta_0,
-                                   sigma_theta_0=cov_theta,
-                                   sigma_x=cov_x,
+        self.prior = torch_mvn.MultivariateNormal(loc=self.theta_0.clone(),
+                                                  covariance_matrix=self.cov_theta)
+        self.likelihood = torch_mvn.MultivariateNormal(
+            loc=theta, covariance_matrix=self.cov_x)
+        self.posterior = Posterior(theta_0=self.theta_0.clone(),
+                                   sigma_theta_0=self.cov_theta,
+                                   sigma_x=self.cov_x,
                                    device=self.device)
 
         self.optimizer = torch.optim.SGD(self.parameters(), lr=1e-1)
@@ -111,10 +113,16 @@ class GaussianLikelihood(nn.Module):
         Args:
           sample (torch.tensor): Size: (#samples, dimension)
         """
-        theta = self.params["theta"]
-        prob = self.prior.log_prob(theta)
-        prob += torch.sum(self.likelihood.log_prob(sample))
-        return -prob
+        theta = self.params["theta"].reshape(2, 1)
+        theta_0 = self.theta_0.reshape(2, 1)
+        sample = sample.transpose(0, 1)
+        prior_diff = theta - theta_0
+        likelihood_diff = sample - theta
+        quadr_prior = prior_diff.transpose(0, 1) @ self.inv_cov_theta @ prior_diff
+        quadr_sum_likelihood = torch.trace(
+            likelihood_diff.transpose(0, 1) @ self.inv_cov_x @ likelihood_diff)
+
+        return quadr_sum_likelihood + quadr_prior
 
     def update_true_posterior(self, sample):
         """Calculate analytic posterior"""
